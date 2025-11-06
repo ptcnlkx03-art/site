@@ -1,1 +1,164 @@
-<p> Đây là website CamNhung neee </p>
+import tkinter as tk
+from tkinter import ttk, messagebox
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
+
+class QuadraticSolverGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Giải Phương Trình Bậc 2")
+        self.root.geometry("800x600")
+        
+        self.solver = QuadraticSolver()
+        self.setup_ui()
+    
+    def setup_ui(self):
+        # Frame nhập liệu
+        input_frame = ttk.LabelFrame(self.root, text="Nhập hệ số", padding=10)
+        input_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        
+        # Nhập hệ số a
+        ttk.Label(input_frame, text="a =").grid(row=0, column=0, padx=5)
+        self.a_var = tk.StringVar(value="1")
+        ttk.Entry(input_frame, textvariable=self.a_var, width=10).grid(row=0, column=1)
+        
+        # Nhập hệ số b
+        ttk.Label(input_frame, text="b =").grid(row=0, column=2, padx=5)
+        self.b_var = tk.StringVar(value="-3")
+        ttk.Entry(input_frame, textvariable=self.b_var, width=10).grid(row=0, column=3)
+        
+        # Nhập hệ số c
+        ttk.Label(input_frame, text="c =").grid(row=0, column=4, padx=5)
+        self.c_var = tk.StringVar(value="2")
+        ttk.Entry(input_frame, textvariable=self.c_var, width=10).grid(row=0, column=5)
+        
+        # Nút giải
+        ttk.Button(input_frame, text="Giải", command=self.solve).grid(row=0, column=6, padx=10)
+        ttk.Button(input_frame, text="Vẽ đồ thị", command=self.plot_graph).grid(row=0, column=7)
+        
+        # Frame kết quả
+        result_frame = ttk.LabelFrame(self.root, text="Kết quả", padding=10)
+        result_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+        
+        self.result_text = tk.Text(result_frame, height=10, width=70)
+        self.result_text.pack()
+        
+        # Frame đồ thị
+        graph_frame = ttk.LabelFrame(self.root, text="Đồ thị", padding=10)
+        graph_frame.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
+        
+        self.figure = plt.Figure(figsize=(6, 4), dpi=100)
+        self.canvas = FigureCanvasTkAgg(self.figure, graph_frame)
+        self.canvas.get_tk_widget().pack()
+    
+    def solve(self):
+        try:
+            a = float(self.a_var.get())
+            b = float(self.b_var.get())
+            c = float(self.c_var.get())
+            
+            result = self.solver.solve(a, b, c)
+            self.display_result(result)
+            
+        except ValueError:
+            messagebox.showerror("Lỗi", "Vui lòng nhập số hợp lệ!")
+    
+    def display_result(self, result: QuadraticResult):
+        self.result_text.delete(1.0, tk.END)
+        
+        # Hiển thị phương trình
+        equation = f"{result.a}x² + {result.b}x + {result.c} = 0\n"
+        self.result_text.insert(tk.END, f"Phương trình: {equation}\n")
+        
+        # Hiển thị kết quả theo từng trường hợp
+        if result.equation_type == "no_solution":
+            self.result_text.insert(tk.END, "Phương trình vô nghiệm\n")
+            
+        elif result.equation_type == "infinite_solutions":
+            self.result_text.insert(tk.END, "Phương trình có vô số nghiệm\n")
+            
+        elif result.equation_type == "linear":
+            self.result_text.insert(tk.END, f"Phương trình bậc nhất\n")
+            self.result_text.insert(tk.END, f"Nghiệm: x = {result.x1:.4f}\n")
+            
+        elif result.equation_type == "two_real_roots":
+            self.result_text.insert(tk.END, f"Delta = {result.discriminant:.4f} > 0\n")
+            self.result_text.insert(tk.END, f"Hai nghiệm phân biệt:\n")
+            self.result_text.insert(tk.END, f"x₁ = {result.x1:.4f}\n")
+            self.result_text.insert(tk.END, f"x₂ = {result.x2:.4f}\n")
+            
+        elif result.equation_type == "double_root":
+            self.result_text.insert(tk.END, f"Delta = 0\n")
+            self.result_text.insert(tk.END, f"Nghiệm kép: x = {result.x1:.4f}\n")
+            
+        elif result.equation_type == "complex_roots":
+            self.result_text.insert(tk.END, f"Delta = {result.discriminant:.4f} < 0\n")
+            self.result_text.insert(tk.END, f"Hai nghiệm phức:\n")
+            self.result_text.insert(tk.END, f"x₁ = {result.x1}\n")
+            self.result_text.insert(tk.END, f"x₂ = {result.x2}\n")
+        
+        # Thông tin bổ sung
+        if result.a != 0:
+            vertex = self.solver.get_vertex(result.a, result.b, result.c)
+            self.result_text.insert(tk.END, f"\nĐỉnh parabol: ({vertex[0]:.4f}, {vertex[1]:.4f})\n")
+            
+            # Tính tổng và tích nghiệm (Viète)
+            if result.equation_type in ["two_real_roots", "double_root"]:
+                sum_roots = -result.b / result.a
+                product_roots = result.c / result.a
+                self.result_text.insert(tk.END, f"Tổng nghiệm: {sum_roots:.4f}\n")
+                self.result_text.insert(tk.END, f"Tích nghiệm: {product_roots:.4f}\n")
+    
+    def plot_graph(self):
+        try:
+            a = float(self.a_var.get())
+            b = float(self.b_var.get())
+            c = float(self.c_var.get())
+            
+            if a == 0 and b == 0:
+                messagebox.showwarning("Cảnh báo", "Không thể vẽ đồ thị!")
+                return
+            
+            self.figure.clear()
+            ax = self.figure.add_subplot(111)
+            
+            # Tạo dữ liệu cho đồ thị
+            if a != 0:
+                vertex_x = -b / (2*a)
+                x_range = 10
+                x = np.linspace(vertex_x - x_range, vertex_x + x_range, 400)
+            else:
+                x = np.linspace(-10, 10, 400)
+            
+            y = a * x**2 + b * x + c
+            
+            # Vẽ đồ thị
+            ax.plot(x, y, 'b-', linewidth=2, label=f'{a}x² + {b}x + {c}')
+            ax.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+            ax.axvline(x=0, color='k', linestyle='-', alpha=0.3)
+            ax.grid(True, alpha=0.3)
+            
+            # Đánh dấu nghiệm
+            result = self.solver.solve(a, b, c)
+            if result.equation_type in ["two_real_roots", "double_root"]:
+                if result.x1 is not None:
+                    ax.plot(result.x1, 0, 'ro', markersize=8, label=f'x₁ = {result.x1:.2f}')
+                if result.x2 is not None and result.x1 != result.x2:
+                    ax.plot(result.x2, 0, 'ro', markersize=8, label=f'x₂ = {result.x2:.2f}')
+            
+            # Đánh dấu đỉnh parabol
+            if a != 0:
+                vertex = self.solver.get_vertex(a, b, c)
+                ax.plot(vertex[0], vertex[1], 'g^', markersize=10, 
+                       label=f'Đỉnh ({vertex[0]:.2f}, {vertex[1]:.2f})')
+            
+            ax.set_xlabel('x')
+            ax.set_ylabel('y')
+            ax.set_title('Đồ thị Phương Trình Bậc 2')
+            ax.legend()
+            
+            self.canvas.draw()
+            
+        except ValueError:
+            messagebox.showerror("Lỗi", "Vui lòng nhập số hợp lệ!")
